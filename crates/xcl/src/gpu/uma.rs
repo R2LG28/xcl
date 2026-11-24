@@ -680,19 +680,18 @@ pub fn coherent_hint() -> usize {
         return (mb << 20).clamp(GRAIN, MAX_SIZE);
     }
     let title = std::fs::read_to_string(coherent_file()).ok().and_then(|s| s.trim().parse::<usize>().ok()).unwrap_or(0);
-    // only with the commit for all of it: the title's ~13 GB, video memory for its render targets
-    // and textures (WDDM charges commit for each video-memory allocation too) and the window
-    // itself – a retail game took ~18 GB; with less free it runs without (its GPU heaps outside
-    // unified memory: no image) rather than taking the system's commit
-    if title > 0 && free_commit() < NEEDS_FOR_COHERENT_HEAPS {
-        crate::xlog_warn!(
-            "UMA: {} MB of commit free, under {} MB: the title's GPU heaps stay outside unified memory (a larger page file gives them the coherent window)",
-            free_commit() >> 20,
-            NEEDS_FOR_COHERENT_HEAPS >> 20
+    // A title's previous-run request can be much larger than the amount of memory
+    // D3D12 can import as a coherent heap on the next run. Start with XCL's small
+    // runtime window; users can opt in to a larger one explicitly with
+    // XCL_COHERENT_MB. This avoids making startup depend on a stale cache entry.
+    if title > RUNTIME_COMMITTED_CAP {
+        crate::xlog_info!(
+            "UMA: cached title request is {} MB; starting with the safe {} MB coherent window (set XCL_COHERENT_MB to override)",
+            title >> 20,
+            RUNTIME_COMMITTED_CAP >> 20
         );
-        return RUNTIME_COMMITTED_CAP;
     }
-    (title + RUNTIME_COMMITTED_CAP).min(MAX_SIZE)
+    RUNTIME_COMMITTED_CAP
 }
 
 /// Commit free before the title starts for its GPU heaps to go to the coherent window.
