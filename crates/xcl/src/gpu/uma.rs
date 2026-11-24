@@ -694,19 +694,6 @@ pub fn coherent_hint() -> usize {
     RUNTIME_COMMITTED_CAP
 }
 
-/// Commit free before the title starts for its GPU heaps to go to the coherent window.
-const NEEDS_FOR_COHERENT_HEAPS: usize = 17 << 30;
-
-fn free_commit() -> usize {
-    use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
-    let mut m: MEMORYSTATUSEX = unsafe { std::mem::zeroed() };
-    m.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
-    if unsafe { GlobalMemoryStatusEx(&mut m) } == 0 {
-        return usize::MAX;
-    }
-    m.ullAvailPageFile as usize
-}
-
 /// The title has asked for `bytes` of graphics memory XCL places in the coherent window: the
 /// next run makes the window that large (this one has the size it was made with).
 pub fn note_coherent_need(bytes: usize) {
